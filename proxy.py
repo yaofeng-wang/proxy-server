@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import argparse
 import sys
 import os
 import socket
@@ -12,6 +13,7 @@ import zlib
 import time
 import json
 import re
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from io import StringIO
@@ -36,6 +38,13 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
+    def log_error(self, format, *args):
+        # surpress "Request timed out: timeout('timed out',)"
+        if isinstance(args[0], socket.timeout):
+            return
+
+        self.log_message(format, *args)
+
     def do_CONNECT(self):
         # maybe do black lists here
         self.connect_relay()
@@ -51,6 +60,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.send_response(HTTPStatus.OK) 
         self.end_headers()
 
+        start_time = time.time()
+        size = 0
         conns = [self.connection, s]
         self.close_connection = 0
         while not self.close_connection:
@@ -60,93 +71,27 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             for r in rlist:
                 other = conns[1] if r is conns[0] else conns[0]
                 data = r.recv(8192)
+                size += sys.getsizeof(data)
                 if not data:
                     self.close_connection = 1
                     break
                 other.sendall(data)   
+        duration = time.time() - start_time
+        self.log_request(size, duration)
 
-    def do_GET(self):
+    def send_response(self, code, message=None):
+        self.send_response_only(code, message)
+        self.send_header('Server', self.version_string())
+        self.send_header('Date', self.date_time_string())
 
-        req = self
-        content_length = int(req.headers.get('Content-Length', 0))
-        req_body = self.rfile.read(content_length) if content_length else None
+    def log_request(self, size='-', duration='-'):
+        self.log_message('Hostname: %s, Size: %s bytes, Time: %.3f sec\n',
+                         self.headers["Host"].split(":", 1)[0], str(size), duration)
 
-        if req.path[0] == '/':
-            if isinstance(self.connection, ssl.SSLSocket):
-                req.path = "https://%s%s" % (req.headers['Host'], req.path)
-            else:
-                req.path = "http://%s%s" % (req.headers['Host'], req.path)
+    def log_message(self, format, *args):
+        sys.stderr.write(format%args)
+        sys.stderr.flush()
 
-        req_body_modified = self.request_handler(req, req_body)
-        if req_body_modified is False:
-            self.send_error(403)
-            return
-        elif req_body_modified is not None:
-            req_body = req_body_modified
-            req.headers['Content-length'] = str(len(req_body))
-
-        u = urllib.parse.urlsplit(req.path)
-        scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
-        assert scheme in ('http', 'https')
-        if netloc:
-            req.headers['Host'] = netloc
-        setattr(req, 'headers', self.filter_headers(req.headers))
-
-        try:
-            origin = (scheme, netloc)
-            if not origin in self.tls.conns:
-                if scheme == 'https':
-                    self.tls.conns[origin] = http.client.HTTPSConnection(netloc, timeout=self.timeout)
-                else:
-                    self.tls.conns[origin] = http.client.HTTPConnection(netloc, timeout=self.timeout)
-            conn = self.tls.conns[origin]
-            conn.request(self.command, path, req_body, dict(req.headers))
-            res = conn.getresponse()
-
-            version_table = {10: 'HTTP/1.0', 11: 'HTTP/1.1'}
-            setattr(res, 'headers', res.msg)
-            setattr(res, 'response_version', version_table[res.version])
-
-            # support streaming
-            if not 'Content-Length' in res.headers and 'no-store' in res.headers.get('Cache-Control', ''):
-                self.response_handler(req, req_body, res, '')
-                setattr(res, 'headers', self.filter_headers(res.headers))
-                self.relay_streaming(res)
-                with self.lock:
-                    self.save_handler(req, req_body, res, '')
-                return
-
-            res_body = res.read()
-        except Exception as e:
-            if origin in self.tls.conns:
-                del self.tls.conns[origin]
-            self.send_error(502)
-            return
-
-        content_encoding = res.headers.get('Content-Encoding', 'identity')
-        res_body_plain = self.decode_content_body(res_body, content_encoding)
-
-        res_body_modified = self.response_handler(req, req_body, res, res_body_plain)
-        if res_body_modified is False:
-            self.send_error(403)
-            return
-        elif res_body_modified is not None:
-            res_body_plain = res_body_modified
-            res_body = self.encode_content_body(res_body_plain, content_encoding)
-            res.headers['Content-Length'] = str(len(res_body))
-
-        setattr(res, 'headers', self.filter_headers(res.headers))
-
-        self.wfile.write("%s %d %s\r\n" % (self.protocol_version, res.status, res.reason))
-        for line in res.headers.headers:
-            self.wfile.write(line)
-        self.end_headers()
-        self.wfile.write(res_body)
-        self.wfile.flush()
-
-        with self.lock:
-            self.save_handler(req, req_body, res, res_body_plain)
-    
     def relay_streaming(self, res):
         self.wfile.write("%s %d %s\r\n" % (self.protocol_version, res.status, res.reason))
         for line in res.headers.headers:
@@ -221,13 +166,17 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     def save_handler(self, req, req_body, res, res_body):
         self.print_info(req, req_body, res, res_body)
 
-def test(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, 
+def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, 
     protocol="HTTP/1.1"):
     
-    if sys.argv[1:]:
-        port = int(sys.argv[1])
-    else:
-        port = 12000
+    # parse arguments: port, flag_telemetry, filename of blacklists
+    parser = argparse.ArgumentParser()
+    parser.add_argument('port', type=int, help="port number")
+    parser.add_argument('flag_telemetry', nargs="?", type=bool, help="flag for telemetry") # remove narg
+    parser.add_argument('filename of blacklists', nargs="?", help="filename for blacklists") # remove narg
+    args = parser.parse_args()
+    port = args.port
+
     server_address = ('', port)
 
     HandlerClass.protocol_version = protocol
@@ -235,8 +184,11 @@ def test(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer,
 
     sa = httpd.socket.getsockname()
     print(f"Serving HTTP Proxy on {sa[0]}, port {sa[1]} ...")
-    httpd.serve_forever()
-
+    try: 
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\nKeyboard interrupt received, exiting.")
+        sys.exit(0)
 
 if __name__ == '__main__':
-    test()
+    main()
