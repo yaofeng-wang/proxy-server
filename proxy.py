@@ -25,29 +25,55 @@ def with_color(c, s):
     return "\x1b[%dm%s\x1b[0m" % (c, s)
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+
     address_family = socket.AF_INET
     daemon_threads = True
+
+    def __init__(self, flag_telemetry, blacklists, *args, **kwargs):
+        self.flag_telemetry = flag_telemetry
+        self.blacklists = blacklists
+
+        super().__init__(*args, **kwargs)
+
+    def log_message(self, format, *args):
+        sys.stderr.write(format%args)
+        sys.stderr.flush()
+
+    def finish_request(self, request, client_address):
+        self.RequestHandlerClass(request, client_address, self)
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
     timeout = 5
     lock = threading.Lock()
 
     def __init__(self, *args, **kwargs):
+        self.flag_telemetry = args[2].flag_telemetry
+        self.blacklists = args[2].blacklists
+
         self.tls = threading.local()
         self.tls.conns = {}
 
-        BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def log_error(self, format, *args):
         # surpress "Request timed out: timeout('timed out',)"
         if isinstance(args[0], socket.timeout):
             return
 
-        self.log_message(format, *args)
+        # self.log_message(format, *args)
+
+    def dest_in_blacklists(self):
+        for ipaddress in self.blacklists:
+            dest_ipaddress = self.headers["Host"].split(":", 1)[0] 
+            if ipaddress in dest_ipaddress:
+                return True
+        return False
 
     def do_CONNECT(self):
-        # maybe do black lists here
-        self.connect_relay()
+        if not self.dest_in_blacklists():
+            self.connect_relay()
+        else:
+            self.send_error(HTTPStatus.NOT_FOUND)
 
     def connect_relay(self):
         address = self.path.split(':', 1)
@@ -166,24 +192,34 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     def save_handler(self, req, req_body, res, res_body):
         self.print_info(req, req_body, res, res_body)
 
-def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, 
-    protocol="HTTP/1.1"):
-    
+
+def parse_args():
     # parse arguments: port, flag_telemetry, filename of blacklists
     parser = argparse.ArgumentParser()
     parser.add_argument('port', type=int, help="port number")
     parser.add_argument('flag_telemetry', nargs="?", type=bool, help="flag for telemetry") # remove narg
-    parser.add_argument('filename of blacklists', nargs="?", help="filename for blacklists") # remove narg
+    parser.add_argument('filename_of_blacklists', nargs="?", help="filename for blacklists") # remove narg
     args = parser.parse_args()
     port = args.port
+    flag_telemetry = args.flag_telemetry
+    filename_of_blacklists = args.filename_of_blacklists
+    return port, flag_telemetry, filename_of_blacklists
 
+def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, 
+    protocol="HTTP/1.1"):
+    
+    port, flag_telemetry, filename_of_blacklists = parse_args()
+
+    blacklists = None
+    if filename_of_blacklists:
+        with open(filename_of_blacklists, 'r') as f:
+            blacklists = set([line[:-1] for line in f.readlines()])
+    
     server_address = ('', port)
 
     HandlerClass.protocol_version = protocol
-    httpd = ServerClass(server_address, HandlerClass)
-
-    sa = httpd.socket.getsockname()
-    print(f"Serving HTTP Proxy on {sa[0]}, port {sa[1]} ...")
+    httpd = ServerClass(flag_telemetry, blacklists, server_address, HandlerClass)
+    
     try: 
         httpd.serve_forever()
     except KeyboardInterrupt:
