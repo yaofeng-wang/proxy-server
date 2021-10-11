@@ -9,11 +9,12 @@ import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from http import HTTPStatus
+import http.client
 
 ENABLE_TELEMETRY = 1
 DISABLE_TELEMETRY = 0
 DEBUG_MODE = 1 # unset before submitting
-class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+class ThreadingHTTPServer(HTTPServer):
 
     address_family = socket.AF_INET
     daemon_threads = True
@@ -45,12 +46,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def log_error(self, format, *args):
-        # surpress Request timed out
-        if isinstance(args[0], socket.timeout):
-            return
-
-        if DEBUG_MODE:
-            self.log_message(format, *args)
+        self.log_message(format, *args)
 
     def dest_in_blacklists(self):
         for ipaddress in self.blacklists:
@@ -60,14 +56,18 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         return False
 
     def do_CONNECT(self):
+        print("START do_connect")
+        print(f"timeout: {self}")
+        print(f"timeout: {self.connection.gettimeout()}")
         if not self.dest_in_blacklists():
             self.connect_relay()
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
+        print("END do_connect")
 
     def connect_relay(self):
         address = self.path.split(':', 1)
-        address[1] = int(address[1]) or 443
+        address[1] = 443 # port is definitely 443 because we only use https
         try:
             s = socket.create_connection(address, timeout=self.timeout)
         except Exception as e:
