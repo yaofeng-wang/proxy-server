@@ -149,7 +149,7 @@ def main(HandlerClass=ProxyRequestHandler,
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nKeyboard interrupt received, exiting.")
+        print("Keyboard interrupt received.")
         sys.exit(0)
 
 if __name__ == '__main__':
