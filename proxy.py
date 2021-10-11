@@ -12,7 +12,7 @@ from http import HTTPStatus
 
 ENABLE_TELEMETRY = 1
 DISABLE_TELEMETRY = 0
-DEBUG_MODE = 0
+DEBUG_MODE = 1 # unset before submitting
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
     address_family = socket.AF_INET
@@ -130,7 +130,7 @@ def load_blacklists(filename_of_blacklists):
         except FileNotFoundError:
             print("Blacklists file was not found.")
             exit(0)
-    return blacklists
+    return blacklists or set()
 
 def get_server_address(port):
     # '' binds to all interfaces
