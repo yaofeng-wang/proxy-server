@@ -12,7 +12,7 @@ from http import HTTPStatus
 
 ENABLE_TELEMETRY = 1
 DISABLE_TELEMETRY = 0
-
+DEBUG_MODE = 0
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
     address_family = socket.AF_INET
@@ -45,11 +45,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def log_error(self, format, *args):
-        # surpress "Request timed out: timeout('timed out',)"
+        # surpress Request timed out
         if isinstance(args[0], socket.timeout):
             return
 
-        # self.log_message(format, *args)
+        if DEBUG_MODE:
+            self.log_message(format, *args)
 
     def dest_in_blacklists(self):
         for ipaddress in self.blacklists:
@@ -120,19 +121,24 @@ def parse_args():
 
     return args.port, args.flag_telemetry, args.filename_of_blacklists
 
+def load_blacklists(filename_of_blacklists):
+    blacklists = None
+    if filename_of_blacklists:
+        with open(filename_of_blacklists, 'r') as f:
+            blacklists = set([line[:-1] for line in f.readlines()])
+    return blacklists
+
+def get_server_address(port):
+    # '' binds to all interfaces
+    return ('', port)
+
 def main(HandlerClass=ProxyRequestHandler,
     ServerClass=ThreadingHTTPServer,
     protocol="HTTP/1.1"):
 
     port, flag_telemetry, filename_of_blacklists = parse_args()
-
-    blacklists = None
-    if filename_of_blacklists:
-        with open(filename_of_blacklists, 'r') as f:
-            blacklists = set([line[:-1] for line in f.readlines()])
-
-    server_address = ('', port)
-
+    blacklists = load_blacklists(filename_of_blacklists)
+    server_address = get_server_address(port)
     HandlerClass.protocol_version = protocol
     httpd = ServerClass(flag_telemetry, blacklists, server_address, HandlerClass)
 
