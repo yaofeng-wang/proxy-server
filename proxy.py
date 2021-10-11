@@ -64,7 +64,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     def dest_in_blacklists(self):
         for ipaddress in self.blacklists:
-            dest_ipaddress = self.headers["Host"].split(":", 1)[0] 
+            dest_ipaddress = self.headers["Host"].split(":", 1)[0]
             if ipaddress in dest_ipaddress:
                 return True
         return False
@@ -83,7 +83,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_error(HTTPStatus.BAD_GATEWAY)
             return
-        self.send_response(HTTPStatus.OK) 
+        self.send_response(HTTPStatus.OK)
         self.end_headers()
 
         start_time = time.time()
@@ -101,7 +101,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if not data:
                     self.close_connection = 1
                     break
-                other.sendall(data)   
+                other.sendall(data)
         duration = time.time() - start_time
         self.log_request(size, duration)
 
@@ -178,10 +178,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             raise Exception("Unknown Content-Encoding: %s" % encoding)
         return text
 
-    
+
     def print_info(self, req, req_body, res, res_body):
         pass
-        
+
 
     def request_handler(self, req, req_body):
         pass
@@ -197,30 +197,30 @@ def parse_args():
     # parse arguments: port, flag_telemetry, filename of blacklists
     parser = argparse.ArgumentParser()
     parser.add_argument('port', type=int, help="port number")
-    parser.add_argument('flag_telemetry', nargs="?", type=bool, help="flag for telemetry") # remove narg
-    parser.add_argument('filename_of_blacklists', nargs="?", help="filename for blacklists") # remove narg
+    parser.add_argument('flag_telemetry', type=bool, help="flag for telemetry")
+    parser.add_argument('filename_of_blacklists', help="filename for blacklists")
     args = parser.parse_args()
     port = args.port
     flag_telemetry = args.flag_telemetry
     filename_of_blacklists = args.filename_of_blacklists
     return port, flag_telemetry, filename_of_blacklists
 
-def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, 
+def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer,
     protocol="HTTP/1.1"):
-    
+
     port, flag_telemetry, filename_of_blacklists = parse_args()
 
     blacklists = None
     if filename_of_blacklists:
         with open(filename_of_blacklists, 'r') as f:
             blacklists = set([line[:-1] for line in f.readlines()])
-    
+
     server_address = ('', port)
 
     HandlerClass.protocol_version = protocol
     httpd = ServerClass(flag_telemetry, blacklists, server_address, HandlerClass)
-    
-    try: 
+
+    try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nKeyboard interrupt received, exiting.")
