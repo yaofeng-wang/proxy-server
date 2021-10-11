@@ -124,8 +124,12 @@ def parse_args():
 def load_blacklists(filename_of_blacklists):
     blacklists = None
     if filename_of_blacklists:
-        with open(filename_of_blacklists, 'r') as f:
-            blacklists = set([line[:-1] for line in f.readlines()])
+        try:
+            with open(filename_of_blacklists, 'r') as f:
+                blacklists = set([line[:-1] for line in f.readlines()])
+        except FileNotFoundError:
+            print("Blacklists file was not found.")
+            exit(0)
     return blacklists
 
 def get_server_address(port):
