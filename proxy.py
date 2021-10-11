@@ -20,6 +20,8 @@ from io import StringIO
 from html.parser import HTMLParser
 from http import HTTPStatus
 
+ENABLE_TELEMETRY = 1
+DISABLE_TELEMETRY = 0
 
 def with_color(c, s):
     return "\x1b[%dm%s\x1b[0m" % (c, s)
@@ -36,8 +38,8 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
         super().__init__(*args, **kwargs)
 
     def log_message(self, format, *args):
-        sys.stderr.write(format%args)
-        sys.stderr.flush()
+        sys.stdout.write(format%args)
+        sys.stdout.flush()
 
     def finish_request(self, request, client_address):
         self.RequestHandlerClass(request, client_address, self)
@@ -115,8 +117,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                          self.headers["Host"].split(":", 1)[0], str(size), duration)
 
     def log_message(self, format, *args):
-        sys.stderr.write(format%args)
-        sys.stderr.flush()
+        if self.flag_telemetry == ENABLE_TELEMETRY:
+            sys.stdout.write(format%args)
+            sys.stdout.flush()
 
     def relay_streaming(self, res):
         self.wfile.write("%s %d %s\r\n" % (self.protocol_version, res.status, res.reason))
@@ -197,7 +200,7 @@ def parse_args():
     # parse arguments: port, flag_telemetry, filename of blacklists
     parser = argparse.ArgumentParser()
     parser.add_argument('port', type=int, help="port number")
-    parser.add_argument('flag_telemetry', type=bool, help="flag for telemetry")
+    parser.add_argument('flag_telemetry', type=int, help="flag for telemetry")
     parser.add_argument('filename_of_blacklists', help="filename for blacklists")
     args = parser.parse_args()
     port = args.port
