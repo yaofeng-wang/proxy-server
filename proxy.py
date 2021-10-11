@@ -112,10 +112,12 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('port', type=int, help="port number")
     parser.add_argument('flag_telemetry', type=int,
+        choices=[ENABLE_TELEMETRY, DISABLE_TELEMETRY],
         help="flag for telemetry")
     parser.add_argument('filename_of_blacklists',
         help="filename for blacklists")
     args = parser.parse_args()
+
     return args.port, args.flag_telemetry, args.filename_of_blacklists
 
 def main(HandlerClass=ProxyRequestHandler,
