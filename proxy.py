@@ -1,30 +1,17 @@
 # -*- coding: utf-8 -*-
 import argparse
 import sys
-import os
 import socket
-import ssl
 import select
-import http.client
-import urllib.parse
 import threading
-import gzip
-import zlib
 import time
-import json
-import re
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
-from io import StringIO
-from html.parser import HTMLParser
 from http import HTTPStatus
 
 ENABLE_TELEMETRY = 1
 DISABLE_TELEMETRY = 0
-
-def with_color(c, s):
-    return "\x1b[%dm%s\x1b[0m" % (c, s)
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
@@ -121,94 +108,18 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             sys.stdout.write(format%args)
             sys.stdout.flush()
 
-    def relay_streaming(self, res):
-        self.wfile.write("%s %d %s\r\n" % (self.protocol_version, res.status, res.reason))
-        for line in res.headers.headers:
-            self.wfile.write(line)
-        self.end_headers()
-        try:
-            while True:
-                chunk = res.read(8192)
-                if not chunk:
-                    break
-                self.wfile.write(chunk)
-            self.wfile.flush()
-        except socket.error:
-            # connection closed by client
-            pass
-
-    def filter_headers(self, headers):
-        # http://tools.ietf.org/html/rfc2616#section-13.5.1
-        hop_by_hop = ('connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade')
-        for k in hop_by_hop:
-            del headers[k]
-
-        # accept only supported encodings
-        if 'Accept-Encoding' in headers:
-            ae = headers['Accept-Encoding']
-            filtered_encodings = [x for x in re.split(r',\s*', ae) if x in ('identity', 'gzip', 'x-gzip', 'deflate')]
-            headers['Accept-Encoding'] = ', '.join(filtered_encodings)
-
-        return headers
-
-    def encode_content_body(self, text, encoding):
-        if encoding == 'identity':
-            data = text
-        elif encoding in ('gzip', 'x-gzip'):
-            fio = StringIO()
-            with gzip.GzipFile(fileobj=fio, mode='wb') as f:
-                f.write(text)
-            data = fio.getvalue()
-        elif encoding == 'deflate':
-            data = zlib.compress(text)
-        else:
-            raise Exception("Unknown Content-Encoding: %s" % encoding)
-        return data
-
-    def decode_content_body(self, data, encoding):
-        if encoding == 'identity':
-            text = data
-        elif encoding in ('gzip', 'x-gzip'):
-            fio = StringIO(data)
-            with gzip.GzipFile(fileobj=fio) as f:
-                text = f.read()
-        elif encoding == 'deflate':
-            try:
-                text = zlib.decompress(data)
-            except zlib.error:
-                text = zlib.decompress(data, -zlib.MAX_WBITS)
-        else:
-            raise Exception("Unknown Content-Encoding: %s" % encoding)
-        return text
-
-
-    def print_info(self, req, req_body, res, res_body):
-        pass
-
-
-    def request_handler(self, req, req_body):
-        pass
-
-    def response_handler(self, req, req_body, res, res_body):
-        pass
-
-    def save_handler(self, req, req_body, res, res_body):
-        self.print_info(req, req_body, res, res_body)
-
-
 def parse_args():
-    # parse arguments: port, flag_telemetry, filename of blacklists
     parser = argparse.ArgumentParser()
     parser.add_argument('port', type=int, help="port number")
-    parser.add_argument('flag_telemetry', type=int, help="flag for telemetry")
-    parser.add_argument('filename_of_blacklists', help="filename for blacklists")
+    parser.add_argument('flag_telemetry', type=int,
+        help="flag for telemetry")
+    parser.add_argument('filename_of_blacklists',
+        help="filename for blacklists")
     args = parser.parse_args()
-    port = args.port
-    flag_telemetry = args.flag_telemetry
-    filename_of_blacklists = args.filename_of_blacklists
-    return port, flag_telemetry, filename_of_blacklists
+    return args.port, args.flag_telemetry, args.filename_of_blacklists
 
-def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer,
+def main(HandlerClass=ProxyRequestHandler,
+    ServerClass=ThreadingHTTPServer,
     protocol="HTTP/1.1"):
 
     port, flag_telemetry, filename_of_blacklists = parse_args()
