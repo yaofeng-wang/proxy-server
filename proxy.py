@@ -33,7 +33,7 @@ class ThreadingHTTPServer(HTTPServer):
         self.RequestHandlerClass(request, client_address, self)
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
-    timeout = 5
+    timeout = 300
     lock = threading.Lock()
 
     def __init__(self, *args, **kwargs):
@@ -57,8 +57,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     def do_CONNECT(self):
         print("START do_connect")
-        print(f"timeout: {self}")
-        print(f"timeout: {self.connection.gettimeout()}")
         if not self.dest_in_blacklists():
             self.connect_relay()
         else:
@@ -67,7 +65,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     def connect_relay(self):
         address = self.path.split(':', 1)
-        address[1] = 443 # port is definitely 443 because we only use https
+        address[1] = int(address[1]) or 443 # port is definitely 443 because we only use https
         try:
             s = socket.create_connection(address, timeout=self.timeout)
         except Exception as e:
@@ -94,6 +92,32 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 other.sendall(data)
         duration = time.time() - start_time
         self.log_request(size, duration)
+
+    def connect_relay2(self):
+        address = ['neverssl.com', 80]
+        try:
+            s = socket.create_connection(address, timeout=self.timeout)
+        except Exception as e:
+            print(e)
+            self.send_error(HTTPStatus.BAD_GATEWAY)
+            return
+        msg = str(self.raw_requestline, 'iso-8859-1') + str(self.headers) +'\r\n\r\n'
+
+        s.sendall(msg.encode('iso-8859-1'))
+        conns = [self.connection, s]
+        data = s.recv(8192)
+        self.connection.send(data)
+        self.close_connection = 1
+
+    def do_GET(self):
+        print('START do_GET')
+        print(self.path)
+        self.connect_relay2()
+        print('END do_GET')
+
+    def do_POST(self):
+        print('START do_POST')
+        print('END do_POST')
 
     def send_response(self, code, message=None):
         self.send_response_only(code, message)
