@@ -69,6 +69,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def log_error(self, format, *args):
+        # surpress "Request timed out: timeout('timed out',)"
+        if isinstance(args[0], socket.timeout):
+            return
         self.log_message(format, *args)
 
     def dest_in_blacklists(self):
