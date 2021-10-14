@@ -13,8 +13,12 @@ from http import HTTPStatus
 ENABLE_TELEMETRY = 1
 DISABLE_TELEMETRY = 0
 NUM_THREADS = 8
-CONNECTION_TIMEOUT = 10
+CONNECTION_TIMEOUT = 5
 BUFFER_SIZE = 8192
+
+# need to use the correct HTTP version
+HTTP_VERSION = "HTTP/1.1"
+# HTTP_VERSION = "HTTP/1.0"
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
@@ -164,7 +168,7 @@ def get_server_address(port):
 
 def main(HandlerClass=ProxyRequestHandler,
     ServerClass=ThreadingHTTPServer,
-    protocol="HTTP/1.1"):
+    protocol=HTTP_VERSION):
 
     port, flag_telemetry, filename_of_blacklists = parse_args()
     blacklists = load_blacklists(filename_of_blacklists)
