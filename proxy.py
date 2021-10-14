@@ -117,7 +117,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 except ConnectionResetError as e:
                     self.close_connection = 1
                     break
-                size += sys.getsizeof(data)
+                if r == conns[1]:
+                    size += sys.getsizeof(data)
                 if not data:
                     self.close_connection = 1
                     break
