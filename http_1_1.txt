@@ -1,0 +1,15 @@
+Hostname: fonts.googleapis.com, Size: 3986 bytes, Time: 5.037 sec
+Hostname: www.nus.edu.sg, Size: 353077 bytes, Time: 5.404 sec
+Hostname: www.nus.edu.sg, Size: 198320 bytes, Time: 5.404 sec
+Hostname: www.nus.edu.sg, Size: 204432 bytes, Time: 5.444 sec
+Hostname: www.nus.edu.sg, Size: 596246 bytes, Time: 5.471 sec
+Hostname: www.nus.edu.sg, Size: 214490 bytes, Time: 5.472 sec
+Hostname: www.nus.edu.sg, Size: 846535 bytes, Time: 6.167 sec
+Hostname: news.nus.edu.sg, Size: 36779 bytes, Time: 5.695 sec
+Hostname: www.google-analytics.com, Size: 24435 bytes, Time: 5.521 sec
+Hostname: www.instagram.com, Size: 84275 bytes, Time: 5.061 sec
+Hostname: content.presspage.com, Size: 925529 bytes, Time: 5.281 sec
+Hostname: content.presspage.com, Size: 1085850 bytes, Time: 5.324 sec
+Hostname: content.presspage.com, Size: 1178013 bytes, Time: 5.460 sec
+Hostname: content.presspage.com, Size: 1631124 bytes, Time: 5.449 sec
+Keyboard interrupt received.

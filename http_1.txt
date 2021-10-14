@@ -1,23 +1,3 @@
-# CS3103 Programming Assignment 1
-
-## How to run the proxy
-0. Check that Python 3.8 is available. At the point of writing this readme file, I have checked that Python 3.8.10 is available on both xcne1.comp.nus.edu.sg and xcne2.comp.nus.edu.sg.
-
-1. Run the command `python proxy.py <port> <flag_telemetry> <filename of blacklist>`.
-
-Note: In order to change the HTTP version used, you will need to comment out one of the HTTP_VERSION variable defined at the top of the proxy.py.
-
-## Design
-
-The design of the proxy is very similar to the descriptions given in the assignment sheet. After the browser establishes a connection with the proxy, the proxy will attempt to establish a connection with the server. If the connection has been established, the proxy will send a 200 OK response back to the client to inform him that the connection with the server has been established.
-
-Thereafter, the proxy will simply forward packets between the client and the server. If HTTP/1.1 is used, the proxy will continue to forward packets until the connection has been idle for the duration of the timeout (5 seconds). Otherwise, the proxy will end the connection after the
-first request-response pair.
-
-## Comparison between HTTP/1.0 and HTTP/1.1
-
-Output after accessing https://www.nus.edu.sg/ with HTTP/1.0:
-```
 Hostname: www.nus.edu.sg, Size: 78364 bytes, Time: 0.340 sec
 Hostname: www.nus.edu.sg, Size: 10042 bytes, Time: 0.159 sec
 Hostname: www.nus.edu.sg, Size: 3962 bytes, Time: 0.180 sec
@@ -90,24 +70,4 @@ Hostname: content.presspage.com, Size: 926544 bytes, Time: 5.321 sec
 Hostname: content.presspage.com, Size: 1085165 bytes, Time: 5.350 sec
 Hostname: content.presspage.com, Size: 1174809 bytes, Time: 5.415 sec
 Hostname: content.presspage.com, Size: 1630648 bytes, Time: 5.485 sec
-```
-Output after accessing https://www.nus.edu.sg/ with HTTP/1.1:
-
-```
-Hostname: fonts.googleapis.com, Size: 3986 bytes, Time: 5.037 sec
-Hostname: www.nus.edu.sg, Size: 353077 bytes, Time: 5.404 sec
-Hostname: www.nus.edu.sg, Size: 198320 bytes, Time: 5.404 sec
-Hostname: www.nus.edu.sg, Size: 204432 bytes, Time: 5.444 sec
-Hostname: www.nus.edu.sg, Size: 596246 bytes, Time: 5.471 sec
-Hostname: www.nus.edu.sg, Size: 214490 bytes, Time: 5.472 sec
-Hostname: www.nus.edu.sg, Size: 846535 bytes, Time: 6.167 sec
-Hostname: news.nus.edu.sg, Size: 36779 bytes, Time: 5.695 sec
-Hostname: www.google-analytics.com, Size: 24435 bytes, Time: 5.521 sec
-Hostname: www.instagram.com, Size: 84275 bytes, Time: 5.061 sec
-Hostname: content.presspage.com, Size: 925529 bytes, Time: 5.281 sec
-Hostname: content.presspage.com, Size: 1085850 bytes, Time: 5.324 sec
-Hostname: content.presspage.com, Size: 1178013 bytes, Time: 5.460 sec
-Hostname: content.presspage.com, Size: 1631124 bytes, Time: 5.449 sec
-```
-
-There are much fewer entries for HTTP/1.1 because of pipelining. This means that within each connection, there can be multiple request-response pairs.
+Keyboard interrupt received.
