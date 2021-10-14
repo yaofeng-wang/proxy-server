@@ -7,17 +7,19 @@ import threading
 import time
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from socketserver import ThreadingMixIn
+from socketserver import ThreadingMixIn, _Threads
 from http import HTTPStatus
 import http.client
 
 ENABLE_TELEMETRY = 1
 DISABLE_TELEMETRY = 0
 DEBUG_MODE = 1 # unset before submitting
-class ThreadingHTTPServer(HTTPServer):
+NUM_THREADS = 8
+class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
     address_family = socket.AF_INET
     daemon_threads = True
+    sem = threading.Semaphore(NUM_THREADS)
 
     def __init__(self, flag_telemetry, blacklists, *args, **kwargs):
         self.flag_telemetry = flag_telemetry
@@ -31,6 +33,27 @@ class ThreadingHTTPServer(HTTPServer):
 
     def finish_request(self, request, client_address):
         self.RequestHandlerClass(request, client_address, self)
+
+    def process_request_thread(self, request, client_address):
+        try:
+            self.finish_request(request, client_address)
+        except Exception:
+            self.handle_error(request, client_address)
+        finally:
+            self.shutdown_request(request)
+            self.sem.release()
+
+    def process_request(self, request, client_address):
+        if self.block_on_close:
+            vars(self).setdefault('_threads', _Threads())
+
+        self.sem.acquire()
+        print(self.sem._value)
+        t = threading.Thread(target = self.process_request_thread,
+                             args = (request, client_address))
+        t.daemon = self.daemon_threads
+        self._threads.append(t)
+        t.start()
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
     timeout = 10
