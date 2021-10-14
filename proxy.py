@@ -97,32 +97,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         duration = time.time() - start_time
         self.log_request(size, duration)
 
-    def connect_relay2(self):
-        address = ['neverssl.com', 80]
-        try:
-            s = socket.create_connection(address, timeout=self.timeout)
-        except Exception as e:
-            print(e)
-            self.send_error(HTTPStatus.BAD_GATEWAY)
-            return
-        msg = str(self.raw_requestline, 'iso-8859-1') + str(self.headers) +'\r\n\r\n'
-
-        s.sendall(msg.encode('iso-8859-1'))
-        conns = [self.connection, s]
-        data = s.recv(8192)
-        self.connection.send(data)
-        self.close_connection = 1
-
-    def do_GET(self):
-        print('START do_GET')
-        print(self.path)
-        self.connect_relay2()
-        print('END do_GET')
-
-    def do_POST(self):
-        print('START do_POST')
-        print('END do_POST')
-
     def send_response(self, code, message=None):
         self.send_response_only(code, message)
         self.send_header('Server', self.version_string())
