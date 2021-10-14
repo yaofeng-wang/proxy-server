@@ -7,14 +7,15 @@ import threading
 import time
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from socketserver import ThreadingMixIn, _Threads
+from socketserver import ThreadingMixIn
 from http import HTTPStatus
-import http.client
 
 ENABLE_TELEMETRY = 1
 DISABLE_TELEMETRY = 0
-DEBUG_MODE = 1 # unset before submitting
 NUM_THREADS = 8
+CONNECTION_TIMEOUT = 10
+BUFFER_SIZE = 8192
+
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
     address_family = socket.AF_INET
@@ -44,11 +45,8 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
             self.sem.release()
 
     def process_request(self, request, client_address):
-        if self.block_on_close:
-            vars(self).setdefault('_threads', _Threads())
 
         self.sem.acquire()
-        print(self.sem._value)
         t = threading.Thread(target = self.process_request_thread,
                              args = (request, client_address))
         t.daemon = self.daemon_threads
@@ -56,7 +54,7 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
         t.start()
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
-    timeout = 10
+    timeout = CONNECTION_TIMEOUT
     lock = threading.Lock()
 
     def __init__(self, *args, **kwargs):
@@ -82,16 +80,15 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         return False
 
     def do_CONNECT(self):
-        print("START do_connect")
         if not self.dest_in_blacklists():
             self.connect_relay()
         else:
             self.send_error(HTTPStatus.NOT_FOUND)
-        print("END do_connect")
 
     def connect_relay(self):
         address = self.path.split(':', 1)
-        address[1] = int(address[1]) or 443 # port is definitely 443 because we only use https
+        # port is definitely 443 because we only use https
+        address[1] = 443
         try:
             s = socket.create_connection(address, timeout=self.timeout)
         except Exception as e:
@@ -111,7 +108,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             for r in rlist:
                 other = conns[1] if r is conns[0] else conns[0]
                 try:
-                    data = r.recv(8192)
+                    data = r.recv(BUFFER_SIZE)
                 except ConnectionResetError as e:
                     self.close_connection = 1
                     break
@@ -130,7 +127,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     def log_request(self, size='-', duration='-'):
         self.log_message('Hostname: %s, Size: %s bytes, Time: %.3f sec\n',
-                         self.headers["Host"].split(":", 1)[0], str(size), duration)
+                         self.headers["Host"].split(":", 1)[0],
+                         str(size), duration)
 
     def log_message(self, format, *args):
         if self.flag_telemetry == ENABLE_TELEMETRY:
