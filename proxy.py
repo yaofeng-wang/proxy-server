@@ -33,7 +33,7 @@ class ThreadingHTTPServer(HTTPServer):
         self.RequestHandlerClass(request, client_address, self)
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
-    timeout = 300
+    timeout = 10
     lock = threading.Lock()
 
     def __init__(self, *args, **kwargs):
@@ -84,7 +84,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 break
             for r in rlist:
                 other = conns[1] if r is conns[0] else conns[0]
-                data = r.recv(8192)
+                try:
+                    data = r.recv(8192)
+                except ConnectionResetError as e:
+                    self.close_connection = 1
+                    break
                 size += sys.getsizeof(data)
                 if not data:
                     self.close_connection = 1
