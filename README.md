@@ -3,9 +3,12 @@
 ## How to run the proxy
 0. Check that Python 3.8 is available. At the point of writing this readme file, I have checked that Python 3.8.10 is available on both xcne1.comp.nus.edu.sg and xcne2.comp.nus.edu.sg.
 
-1. Run the command `python proxy.py <port> <flag_telemetry> <filename of blacklist>`.
+1. Run the command `python3 proxy.py <port> <flag_telemetry> <filename of blacklist>`.
 
-Note: In order to change the HTTP version used, you will need to comment out one of the HTTP_VERSION variable defined at the top of the proxy.py.
+
+Note 1: The command above was tested on xcne2.comp.nus.edu.sg.
+
+Note 2: In order to change the HTTP version used, you will need to comment out one of the HTTP_VERSION variable defined at the top of the proxy.py.
 
 ## Design
 
